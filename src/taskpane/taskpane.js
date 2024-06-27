@@ -9,20 +9,40 @@ Office.onReady((info) => {
   if (info.host === Office.HostType.Word) {
     document.getElementById("sideload-msg").style.display = "none";
     document.getElementById("app-body").style.display = "flex";
-    document.getElementById("sendDocument").onclick = saveAsPdfAndSendToBrowser;
+    document.getElementById("sendDocument").onclick = saveAsPdfAndDocumentToServer;
     document.getElementById("fetchDocument").onclick = fetchDocumentFromS3;
     // document.getElementById("sendToNovacom").onclick = saveAsPdfAndSendToBrowser;
   }
 });
 
+const urlField = document.getElementById("novacomUrl");
+
+urlField.addEventListener("input", (event) => {
+  const sendDocumentButton = document.getElementById("sendDocument");
+  const fetchDocumentButton = document.getElementById("fetchDocument");
+
+  if (event.target.value.length === 0) {
+    sendDocumentButton.style.display = "none";
+    fetchDocumentButton.style.display = "none";
+  }
+
+  if (event.target.value.length > 0) {
+    sendDocumentButton.style.display = "";
+    fetchDocumentButton.style.display = "";
+  }
+});
+
 async function fetchDocumentFromS3() {
-  const s3Url = document.getElementById("s3Url").value;
+  const s3Url = document.getElementById("novacomUrl").value;
 
   if (!s3Url) {
     return;
   }
 
   try {
+    // Show backdrop while processing
+    const backdrop = document.getElementById("backdrop");
+    backdrop.style.display = "flex";
     const xhr = new XMLHttpRequest();
 
     xhr.open("GET", s3Url, true);
@@ -45,8 +65,11 @@ async function fetchDocumentFromS3() {
     };
 
     xhr.send();
+    backdrop.style.display = "none";
   } catch (error) {
     await insertErrorToDocument(error);
+    const backdrop = document.getElementById("backdrop");
+    backdrop.style.display = "none";
 
     console.error("Failed to fetch document from S3:", error);
   }
@@ -219,14 +242,18 @@ const getPdfBlob = () => {
   });
 };
 
-const saveAsPdfAndSendToBrowser = async () => {
-  const url = document.getElementById("sendToNovacom").value;
+const saveAsPdfAndDocumentToServer = async () => {
+  const url = document.getElementById("novacomUrl").value;
 
   if (!url) {
     return;
   }
 
   try {
+    // Show backdrop while processing
+    const backdrop = document.getElementById("backdrop");
+    backdrop.style.display = "flex";
+
     // Retrieve Word and PDF blobs
     const wordBlob = await getWordBlob();
     const pdfBlob = await getPdfBlob();
@@ -237,10 +264,15 @@ const saveAsPdfAndSendToBrowser = async () => {
     // saveAs(wordBlob, "document.docx");
 
     // Example: Send blobs to server or further process them
-    sendFilesToServer(pdfBlob, "pdfDocument.pdf", wordBlob, "wordDocument.docx", url); // Assuming you have a function to handle server upload
+    await sendFilesToServer(pdfBlob, "pdfDocument.pdf", wordBlob, "wordDocument.docx", url); // Assuming you have a function to handle server upload
+
+    // Hide backdrop after processing
+    backdrop.style.display = "none";
   } catch (error) {
-    await insertErrorToDocument(error);
     console.error("Error retrieving files:", error);
+
+    const backdrop = document.getElementById("backdrop");
+    backdrop.style.display = "none";
     // Handle error
   }
 };

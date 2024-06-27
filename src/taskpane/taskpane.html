@@ -26,9 +26,17 @@
 
   <body class="ms-font-m ms-welcome ms-Fabric">
     <header class="ms-welcome__header ms-bgColor-neutralLighter">
-      <img width="90" height="90" src="../../assets/logo-filled.png" alt="Contoso" title="Contoso" />
+      <div class="logo-container">
+        <img width="120" height="120" src="../../assets/novacomIcon.svg" alt="Contoso" title="Contoso" />
+      </div>
       <h1 class="ms-font-su">Welcome</h1>
     </header>
+
+    <!-- Backdrop and loading indicator -->
+    <div id="backdrop" class="backdrop" style="display: none">
+      <div class="loader"></div>
+    </div>
+
     <section id="sideload-msg" class="ms-welcome__main">
       <h2 class="ms-font-xl">
         Please
@@ -42,26 +50,31 @@
     </section>
     <main id="app-body" class="ms-welcome__main" style="display: none">
       <p><label id="item-subject"></label></p>
+      <input
+        type="text"
+        id="novacomUrl"
+        placeholder="Enter Novacom Url"
+        class="ms-TextField-field"
+        style="margin-bottom: 10px; width: 150px"
+      />
       <div>
-        <input
-          type="text"
-          id="s3Url"
-          placeholder="Enter S3 URL"
-          class="ms-TextField-field"
-          style="margin-bottom: 2px; width: 150px"
-        />
-        <button id="fetchDocument" class="ms-Button ms-Button--primary">Fetch Document</button>
+        <button
+          id="fetchDocument"
+          class="ms-Button ms-Button--primary"
+          style="margin-bottom: 10px; width: 150px; display: none"
+        >
+          Get Document
+        </button>
       </div>
 
       <div>
-        <input
-          type="text"
-          id="sendToNovacom"
-          placeholder="Enter Novacom Url"
-          class="ms-TextField-field"
-          style="margin-top: 2px; width: 150px"
-        />
-        <button id="sendDocument" class="ms-Button ms-Button--primary">Send Novacom</button>
+        <button
+          id="sendDocument"
+          class="ms-Button ms-Button--primary"
+          style="margin-bottom: 10px; width: 150px; display: none"
+        >
+          Save Document
+        </button>
       </div>
     </main>
   </body>
