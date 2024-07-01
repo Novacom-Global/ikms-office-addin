@@ -22,17 +22,33 @@ urlField.addEventListener("input", (event) => {
   const fetchDocumentButton = document.getElementById("fetchDocument");
 
   if (event.target.value.length === 0) {
-    sendDocumentButton.style.display = "none";
     fetchDocumentButton.style.display = "none";
   }
 
   if (event.target.value.length > 0) {
-    sendDocumentButton.style.display = "";
     fetchDocumentButton.style.display = "";
   }
 });
 
+const nameField = document.getElementById("nameOfDocument");
+
+nameField.addEventListener("input", (event) => {
+  const urlField = document.getElementById("novacomUrl");
+
+  const sendDocumentButton = document.getElementById("sendDocument");
+
+  if (event.target.value.length === 0 && urlField.value.length === 0) {
+    sendDocumentButton.style.display = "none";
+  }
+
+  if (event.target.value.length > 0 && urlField.value.length > 0) {
+    sendDocumentButton.style.display = "";
+  }
+});
+
 async function fetchDocumentFromS3() {
+  console.log(Office.context.document.url);
+
   const s3Url = document.getElementById("novacomUrl").value;
 
   if (!s3Url) {
@@ -264,7 +280,10 @@ const saveAsPdfAndDocumentToServer = async () => {
     // saveAs(wordBlob, "document.docx");
 
     // Example: Send blobs to server or further process them
-    await sendFilesToServer(pdfBlob, "pdfDocument.pdf", wordBlob, "wordDocument.docx", url); // Assuming you have a function to handle server upload
+
+    const nameField = document.getElementById("nameOfDocument");
+
+    await sendFilesToServer(pdfBlob, `${nameField.value}.pdf`, wordBlob, `${nameField.value}.docx`, url); // Assuming you have a function to handle server upload
 
     // Hide backdrop after processing
     backdrop.style.display = "none";
