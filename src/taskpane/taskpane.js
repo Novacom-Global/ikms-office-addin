@@ -6,7 +6,7 @@
 /* global document, Office, Word */
 
 Office.onReady((info) => {
-  if (info.host === Office.HostType.Word) {
+  if (info.host === Office.HostType.Word || info.host === Office.HostType.Excel) {
     document.getElementById("sideload-msg").style.display = "none";
     document.getElementById("app-body").style.display = "flex";
     document.getElementById("sendDocument").onclick = saveAsPdfAndDocumentToServer;
@@ -18,7 +18,6 @@ Office.onReady((info) => {
 const urlField = document.getElementById("novacomUrl");
 
 urlField.addEventListener("input", (event) => {
-  const sendDocumentButton = document.getElementById("sendDocument");
   const fetchDocumentButton = document.getElementById("fetchDocument");
 
   if (event.target.value.length === 0) {
@@ -30,28 +29,24 @@ urlField.addEventListener("input", (event) => {
   }
 });
 
-const nameField = document.getElementById("nameOfDocument");
-
-nameField.addEventListener("input", (event) => {
-  const urlField = document.getElementById("novacomUrl");
-
-  const sendDocumentButton = document.getElementById("sendDocument");
-
-  if (event.target.value.length === 0 && urlField.value.length === 0) {
-    sendDocumentButton.style.display = "none";
-  }
-
-  if (event.target.value.length > 0 && urlField.value.length > 0) {
-    sendDocumentButton.style.display = "";
-  }
-});
-
 async function fetchDocumentFromS3() {
-  console.log(Office.context.document.url);
+  const officeHost = Office.context.host;
 
   const s3Url = document.getElementById("novacomUrl").value;
 
+  // Extract the file type from the URL
+  const urlParts = s3Url.split("/");
+  const fileTypeFromUrl = urlParts[urlParts.length - 1].toLowerCase(); // Extract last part and convert to lowercase
+
   if (!s3Url) {
+    return;
+  }
+
+  if (fileTypeFromUrl.toLowerCase() === "pdf" && officeHost.toLowerCase() !== "word") {
+    return;
+  }
+
+  if (fileTypeFromUrl.toLowerCase() !== "pdf" && fileTypeFromUrl.toLowerCase() !== officeHost.toLowerCase()) {
     return;
   }
 
@@ -63,14 +58,38 @@ async function fetchDocumentFromS3() {
 
     xhr.open("GET", s3Url, true);
 
-    xhr.responseType = "text";
+    xhr.responseType = "application/json";
 
     xhr.onload = function () {
       if (xhr.status === 200) {
-        const base64 = xhr.response;
-        // const base64 = arrayBufferToBase64(arrayBuffer);
+        const data = xhr.response;
 
-        insertDocumentContent(base64);
+        const parsedData = JSON.parse(data);
+        const base64 = parsedData.base64;
+
+        // Select the input element by its id
+        const inputElement = document.getElementById("nameOfDocument");
+
+        // Enable the input field temporarily
+        inputElement.disabled = false;
+
+        // Set the value of the input element
+        inputElement.value = parsedData.name;
+
+        // Disable the input field again (if needed)
+        inputElement.disabled = true;
+
+        const sendDocumentButton = document.getElementById("sendDocument");
+
+        sendDocumentButton.style.display = "";
+
+        if (fileTypeFromUrl === "word" || fileTypeFromUrl === "pdf") {
+          insertDocumentContent(base64);
+        }
+
+        if (fileTypeFromUrl === "excel") {
+          insertExcelContent(base64);
+        }
       } else {
         throw new Error(`Network response was not ok: ${xhr.statusText}`);
       }
@@ -117,6 +136,28 @@ async function insertDocumentContent(base64) {
   }
 }
 
+async function insertExcelContent(base64) {
+  try {
+    await Excel.run(async (context) => {
+      let workbook = context.workbook;
+
+      // Set up the insert options.
+      let options = {
+        sheetNamesToInsert: [], // Insert all the worksheets from the source workbook.
+        positionType: Excel.WorksheetPositionType.after, // Insert after the `relativeTo` sheet.
+        relativeTo: "Sheet1", // The sheet relative to which the other worksheets will be inserted. Used with `positionType`.
+      };
+
+      // Insert the new worksheets into the current workbook.
+      workbook.insertWorksheetsFromBase64(base64, options);
+      await context.sync();
+    });
+  } catch (error) {
+    await insertErrorToExcel(error.message);
+    console.error("Failed to insert Excel content:", error);
+  }
+}
+
 async function insertErrorToDocument(errorMessage) {
   try {
     await Word.run(async (context) => {
@@ -158,7 +199,7 @@ function getSliceAsync(file, nextSlice, sliceCount, gotAllSlices, docDataSlices,
   });
 }
 
-function returnPDFBlob(fileContent, blobType) {
+function returnBlob(fileContent, blobType) {
   // Convert binary string to Uint8Array
   const len = fileContent.length;
   const bytes = new Uint8Array(len);
@@ -166,15 +207,22 @@ function returnPDFBlob(fileContent, blobType) {
     bytes[i] = fileContent.charCodeAt(i);
   }
 
-  // Create a Blob from the Uint8Array
-  const pdfBlob = new Blob([bytes], {
-    type:
-      blobType === "pdf"
-        ? "application/pdf"
-        : "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  });
+  // Determine the correct MIME type based on the blobType
+  let mimeType;
+  if (blobType === "pdf") {
+    mimeType = "application/pdf";
+  } else if (blobType === "word") {
+    mimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  } else if (blobType === "excel") {
+    mimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  } else {
+    throw new Error("Unsupported blob type");
+  }
 
-  return pdfBlob;
+  // Create a Blob from the Uint8Array
+  const blob = new Blob([bytes], { type: mimeType });
+
+  return blob;
   // saveAs(blob, "document.pdf");
 }
 
@@ -209,7 +257,7 @@ function onGotAllSlices(docDataSlices, blobType) {
   // Now all the file content is stored in 'fileContent' variable,
   // you can do something with it, such as print, fax...
 
-  const pdfBlob = returnPDFBlob(fileContent, blobType);
+  const pdfBlob = returnBlob(fileContent, blobType);
 
   return pdfBlob;
 }
@@ -227,6 +275,28 @@ const getWordBlob = () => {
         let slicesReceived = 0,
           gotAllSlices = true;
         getSliceAsync(myFile, 0, sliceCount, gotAllSlices, docDataSlices, slicesReceived, resolve, "word");
+
+        myFile.closeAsync();
+      } else {
+        reject(result.error);
+      }
+    });
+  });
+};
+
+// Function to retrieve the Word document as a Blob
+const getExcelBlob = () => {
+  return new Promise((resolve, reject) => {
+    Office.context.document.getFileAsync(Office.FileType.Compressed, function (result) {
+      if (result.status == "succeeded") {
+        const myFile = result.value;
+        const sliceCount = myFile.sliceCount;
+
+        // Get the file slices.
+        const docDataSlices = [];
+        let slicesReceived = 0,
+          gotAllSlices = true;
+        getSliceAsync(myFile, 0, sliceCount, gotAllSlices, docDataSlices, slicesReceived, resolve, "excel");
 
         myFile.closeAsync();
       } else {
@@ -265,25 +335,34 @@ const saveAsPdfAndDocumentToServer = async () => {
     return;
   }
 
+  // Extract the file type from the URL
+  const urlParts = url.split("/");
+  const fileTypeFromUrl = urlParts[urlParts.length - 1];
+
   try {
     // Show backdrop while processing
     const backdrop = document.getElementById("backdrop");
     backdrop.style.display = "flex";
 
-    // Retrieve Word and PDF blobs
-    const wordBlob = await getWordBlob();
-    const pdfBlob = await getPdfBlob();
+    if (fileTypeFromUrl === "WORD" || fileTypeFromUrl === "PDF") {
+      // Retrieve Word and PDF blobs
+      const wordBlob = await getWordBlob();
+      const pdfBlob = await getPdfBlob();
 
-    // Now you have both Word and PDF blobs, you can use them as needed
+      const nameField = document.getElementById("nameOfDocument");
 
-    // saveAs(pdfBlob, "document.pdf");
-    // saveAs(wordBlob, "document.docx");
+      await sendFilesToServer(pdfBlob, `${nameField.value}.pdf`, wordBlob, `${nameField.value}.docx`, url); // Assuming you have a function to handle server upload
+    }
 
-    // Example: Send blobs to server or further process them
+    if (fileTypeFromUrl === "EXCEL") {
+      // Retrieve Word and PDF blobs
 
-    const nameField = document.getElementById("nameOfDocument");
+      const excelBlob = await getExcelBlob();
 
-    await sendFilesToServer(pdfBlob, `${nameField.value}.pdf`, wordBlob, `${nameField.value}.docx`, url); // Assuming you have a function to handle server upload
+      const nameField = document.getElementById("nameOfDocument");
+
+      await sendExcelFileToServer(excelBlob, `${nameField.value}.xlsx`, url); // Assuming you have a function to handle server upload
+    }
 
     // Hide backdrop after processing
     backdrop.style.display = "none";
@@ -306,6 +385,33 @@ function sendFilesToServer(pdfBlob, pdfFileName, wordBlob, wordFileName, url) {
 
     formData.append("pdf", pdfBlob, pdfFileName);
     formData.append("word", wordBlob, wordFileName);
+
+    xhr.onload = function () {
+      if (xhr.status === 200) {
+        resolve(xhr.responseText); // Resolve with server response on success
+      } else {
+        reject(new Error(`XHR failed with status ${xhr.status}`)); // Reject with error on failure
+      }
+    };
+
+    xhr.onerror = function () {
+      reject(new Error("Network error during XHR")); // Reject with network error
+    };
+
+    // Send the Blob as the request body
+    xhr.send(formData);
+  });
+}
+
+function sendExcelFileToServer(excelFile, excelFileName, url) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+
+    xhr.open("POST", url, true);
+
+    const formData = new FormData();
+
+    formData.append("excel", excelFile, excelFileName);
 
     xhr.onload = function () {
       if (xhr.status === 200) {

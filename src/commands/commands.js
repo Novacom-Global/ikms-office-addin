@@ -5,20 +5,7 @@
 
 /* global Office */
 
-Office.onReady(() => {
-  // If needed, Office.js is ready to be called.
-  // Get the current document
-  var doc = Office.context.document;
-
-  // Save the document as a PDF to the C: drive
-  doc.saveAs("C:\\Document.pdf", function (asyncResult) {
-    if (asyncResult.status === "failed") {
-      console.log("Error: " + asyncResult.error.message);
-    } else {
-      console.log("File saved successfully!");
-    }
-  });
-});
+Office.onReady(() => {});
 
 /**
  * Shows a notification when the add-in command is executed.
