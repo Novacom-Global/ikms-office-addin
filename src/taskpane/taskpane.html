@@ -26,10 +26,10 @@
 
   <body class="ms-font-m ms-welcome ms-Fabric">
     <header class="ms-welcome__header ms-bgColor-neutralLighter">
-      <div class="logo-container">
-        <img width="120" height="120" src="../../assets/novacomIcon.svg" alt="Contoso" title="Contoso" />
-      </div>
-      <h1 class="ms-font-su">Welcome</h1>
+      <!-- <div class="logo-container"> -->
+      <img width="157" height="22" src="../../assets/novacomIcon.svg" alt="Contoso" title="Contoso" />
+      <!-- </div> -->
+      <h1 class="ms-font-su" style="font-size: 22px">Welcome</h1>
     </header>
 
     <!-- Backdrop and loading indicator -->
@@ -55,31 +55,38 @@
         id="novacomUrl"
         placeholder="Enter Novacom Url"
         class="ms-TextField-field"
-        style="margin-bottom: 10px; width: 150px"
+        style="margin-bottom: 10px; width: 98%; margin-left: 10px; margin-right: 10px"
       />
       <input
         type="text"
         id="nameOfDocument"
-        placeholder="Enter name of document"
+        placeholder="Document name will appear here"
         class="ms-TextField-field"
-        style="margin-bottom: 10px; width: 150px; "
+        style="margin-bottom: 10px; width: 98%; margin-left: 10px; margin-right: 10px"
         disabled
       />
-      <div>
+      <div
+        style="
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          width: 100%;
+          margin-left: 10px;
+          margin-right: 10px;
+        "
+      >
         <button
           id="fetchDocument"
           class="ms-Button ms-Button--primary"
-          style="margin-bottom: 10px; width: 150px; display: none"
+          style="margin: 0px; padding: 0px; width: 120px; height: 32.5px; display: none"
         >
           Get Document
         </button>
-      </div>
 
-      <div>
         <button
           id="sendDocument"
           class="ms-Button ms-Button--primary"
-          style="margin-bottom: 10px; width: 150px; display: none"
+          style="margin: 0px; padding: 0px; width: 120px; height: 32.5px; display: none"
         >
           Save Document
         </button>
