@@ -5,7 +5,7 @@ const CopyWebpackPlugin = require("copy-webpack-plugin");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 
 const urlDev = "https://localhost:5000/";
-const urlProd = "https://ikms-office-addin.onrender.com";
+const urlProd = "https://ikms-office-addin-1.onrender.com";
 
 async function getHttpsOptions() {
   const httpsOptions = await devCerts.getHttpsServerOptions();
