@@ -1,19 +1,20 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0" xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="TaskPaneApp">
   <Id>670d5591-642d-45e7-bf70-c0e7e888181d</Id>
-  <Version>1.0.0.0</Version>
+  <Version>2.0.0</Version>
   <ProviderName>Novacom</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="Novacom Office addin for IKMS app"/>
-  <Description DefaultValue="A template to get started."/>
+  <DisplayName DefaultValue="Novacom"/>
+  <Description DefaultValue="Novacom Office addin for IKMS app"/>
   <IconUrl DefaultValue="https://ikms-office-addin.onrender.com/assets/icon-32.png"/>
   <HighResolutionIconUrl DefaultValue="https://ikms-office-addin.onrender.com/assets/icon-64.png"/>
-  <SupportUrl DefaultValue="https://www.contoso.com/help"/>
+  <SupportUrl DefaultValue="https://www.novacom.group"/>
   <AppDomains>
     <AppDomain>https://ikms-office-addin.onrender.com</AppDomain>
   </AppDomains>
   <Hosts>
     <Host Name="Document"/>
+    <Host Name="Workbook"/>
   </Hosts>
   <DefaultSettings>
     <SourceLocation DefaultValue="https://ikms-office-addin.onrender.com/taskpane.html"/>
