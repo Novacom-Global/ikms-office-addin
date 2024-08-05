@@ -170,8 +170,49 @@ async function insertErrorToDocument(errorMessage) {
   }
 }
 
-function getSliceAsync(file, nextSlice, sliceCount, gotAllSlices, docDataSlices, slicesReceived, resolve, blobType) {
-  file.getSliceAsync(nextSlice, function (sliceResult) {
+function updateProgressBar(progressBar, slicesReceived, sliceCount) {
+  const percentComplete = (slicesReceived / sliceCount) * 100;
+  progressBar.style.width = `${percentComplete}%`;
+  progressBar.textContent = `${Math.round(percentComplete)}%`;
+}
+
+function removeProgressBar(blobType) {
+  const progressContainer = document.getElementById("progress-container");
+  const progressBar = document.getElementById(`progress-bar-${blobType}`);
+  const progressText = document.getElementById(`progress-text-${blobType}`);
+
+  progressContainer.removeChild(progressBar);
+  progressContainer.removeChild(progressText);
+}
+
+function capitalizeFirstLetter(string) {
+  return string.charAt(0).toUpperCase() + string.slice(1);
+}
+
+function createProgressBar(blobType) {
+  const progressContainer = document.getElementById("progress-container");
+  const progressText = document.createElement("h5");
+  progressText.id = `progress-text-${blobType}`;
+  progressText.textContent = `${capitalizeFirstLetter(blobType)} File Progress`;
+
+  const progressBar = document.createElement("div");
+
+  progressBar.id = `progress-bar-${blobType}`;
+  progressContainer.appendChild(progressText);
+  progressContainer.appendChild(progressBar);
+}
+
+async function getSliceAsync(
+  file,
+  nextSlice,
+  sliceCount,
+  gotAllSlices,
+  docDataSlices,
+  slicesReceived,
+  resolve,
+  blobType
+) {
+  file.getSliceAsync(nextSlice, async function (sliceResult) {
     if (sliceResult.status == "succeeded") {
       if (!gotAllSlices) {
         /* Failed to get all slices, no need to continue. */
@@ -182,19 +223,35 @@ function getSliceAsync(file, nextSlice, sliceCount, gotAllSlices, docDataSlices,
       // (Or you can do something else, such as
       // send it to a third-party server.)
       docDataSlices[sliceResult.value.index] = sliceResult.value.data;
+      const progressBar = document.getElementById(`progress-bar-${blobType}`);
+
+      updateProgressBar(progressBar, slicesReceived, sliceCount);
       if (++slicesReceived == sliceCount) {
         // All slices have been received.
-        file.closeAsync();
-        const pdfBlob = onGotAllSlices(docDataSlices, blobType);
 
-        resolve(pdfBlob);
+        await file.closeAsync(() => {
+          const pdfBlob = onGotAllSlices(docDataSlices, blobType);
+
+          resolve(pdfBlob);
+
+          removeProgressBar(blobType);
+        });
       } else {
-        getSliceAsync(file, ++nextSlice, sliceCount, gotAllSlices, docDataSlices, slicesReceived, resolve, blobType);
+        await getSliceAsync(
+          file,
+          ++nextSlice,
+          sliceCount,
+          gotAllSlices,
+          docDataSlices,
+          slicesReceived,
+          resolve,
+          blobType
+        );
       }
     } else {
       gotAllSlices = false;
-      file.closeAsync();
-      app.showNotification("getSliceAsync Error:", sliceResult.error.message);
+      await file.closeAsync();
+      removeProgressBar(blobType);
     }
   });
 }
@@ -264,23 +321,31 @@ function onGotAllSlices(docDataSlices, blobType) {
 
 // Function to retrieve the Word document as a Blob
 const getWordBlob = () => {
+  // Create and insert the progress bar element
+  createProgressBar("word");
+
   return new Promise((resolve, reject) => {
-    Office.context.document.getFileAsync(Office.FileType.Compressed, function (result) {
-      if (result.status == "succeeded") {
-        const myFile = result.value;
-        const sliceCount = myFile.sliceCount;
+    Office.context.document.getFileAsync(
+      Office.FileType.Compressed,
+      { sliceSize: 65536 /*64 KB*/ },
+      async function (result) {
+        if (result.status == Office.AsyncResultStatus.Succeeded) {
+          const myFile = result.value;
+          const sliceCount = myFile.sliceCount;
 
-        // Get the file slices.
-        const docDataSlices = [];
-        let slicesReceived = 0,
-          gotAllSlices = true;
-        getSliceAsync(myFile, 0, sliceCount, gotAllSlices, docDataSlices, slicesReceived, resolve, "word");
+          // Get the file slices.
+          const docDataSlices = [];
+          let slicesReceived = 0;
+          let gotAllSlices = true;
 
-        myFile.closeAsync();
-      } else {
-        reject(result.error);
+          await getSliceAsync(myFile, 0, sliceCount, gotAllSlices, docDataSlices, slicesReceived, resolve, "word");
+        } else {
+          removeProgressBar("word");
+
+          reject(result.error);
+        }
       }
-    });
+    );
   });
 };
 
@@ -294,11 +359,9 @@ const getExcelBlob = () => {
 
         // Get the file slices.
         const docDataSlices = [];
-        let slicesReceived = 0,
-          gotAllSlices = true;
+        let slicesReceived = 0;
+        let gotAllSlices = true;
         getSliceAsync(myFile, 0, sliceCount, gotAllSlices, docDataSlices, slicesReceived, resolve, "excel");
-
-        myFile.closeAsync();
       } else {
         reject(result.error);
       }
@@ -308,20 +371,22 @@ const getExcelBlob = () => {
 
 // Function to retrieve the PDF document as a Blob
 const getPdfBlob = () => {
+  createProgressBar("pdf");
   return new Promise((resolve, reject) => {
-    Office.context.document.getFileAsync(Office.FileType.Pdf, function (result) {
-      if (result.status == "succeeded") {
+    Office.context.document.getFileAsync(Office.FileType.Pdf, { sliceSize: 65536 /*64 KB*/ }, async function (result) {
+      if (result.status == Office.AsyncResultStatus.Succeeded) {
         const myFile = result.value;
         const sliceCount = myFile.sliceCount;
 
         // Get the file slices.
         const docDataSlices = [];
-        let slicesReceived = 0,
-          gotAllSlices = true;
-        getSliceAsync(myFile, 0, sliceCount, gotAllSlices, docDataSlices, slicesReceived, resolve, "pdf");
+        let slicesReceived = 0;
+        let gotAllSlices = true;
 
-        myFile.closeAsync();
+        await getSliceAsync(myFile, 0, sliceCount, gotAllSlices, docDataSlices, slicesReceived, resolve, "pdf");
       } else {
+        removeProgressBar("pdf");
+
         reject(result.error);
       }
     });
@@ -344,14 +409,22 @@ const saveAsPdfAndDocumentToServer = async () => {
     const backdrop = document.getElementById("backdrop");
     backdrop.style.display = "flex";
 
-    if (fileTypeFromUrl === "WORD" || fileTypeFromUrl === "PDF") {
+    if (fileTypeFromUrl === "PDF") {
       // Retrieve Word and PDF blobs
-      const wordBlob = await getWordBlob();
       const pdfBlob = await getPdfBlob();
+      const wordBlob = await getWordBlob();
 
       const nameField = document.getElementById("nameOfDocument");
 
-      await sendFilesToServer(pdfBlob, `${nameField.value}.pdf`, wordBlob, `${nameField.value}.docx`, url); // Assuming you have a function to handle server upload
+      await sendPDFAndWordToServer(pdfBlob, `${nameField.value}.pdf`, wordBlob, `${nameField.value}.docx`, url); // Assuming you have a function to handle server upload
+    }
+
+    if (fileTypeFromUrl === "WORD") {
+      const wordBlob = await getWordBlob();
+
+      const nameField = document.getElementById("nameOfDocument");
+
+      await sendWordFileToServer(wordBlob, `${nameField.value}.docx`, url); // Assuming you have a function to handle server upload
     }
 
     if (fileTypeFromUrl === "EXCEL") {
@@ -375,7 +448,7 @@ const saveAsPdfAndDocumentToServer = async () => {
   }
 };
 
-function sendFilesToServer(pdfBlob, pdfFileName, wordBlob, wordFileName, url) {
+function sendPDFAndWordToServer(pdfBlob, pdfFileName, wordBlob, wordFileName, url) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
 
@@ -384,6 +457,33 @@ function sendFilesToServer(pdfBlob, pdfFileName, wordBlob, wordFileName, url) {
     const formData = new FormData();
 
     formData.append("pdf", pdfBlob, pdfFileName);
+    formData.append("word", wordBlob, wordFileName);
+
+    xhr.onload = function () {
+      if (xhr.status === 200) {
+        resolve(xhr.responseText); // Resolve with server response on success
+      } else {
+        reject(new Error(`XHR failed with status ${xhr.status}`)); // Reject with error on failure
+      }
+    };
+
+    xhr.onerror = function () {
+      reject(new Error("Network error during XHR")); // Reject with network error
+    };
+
+    // Send the Blob as the request body
+    xhr.send(formData);
+  });
+}
+
+function sendWordFileToServer(wordBlob, wordFileName, url) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+
+    xhr.open("POST", url, true);
+
+    const formData = new FormData();
+
     formData.append("word", wordBlob, wordFileName);
 
     xhr.onload = function () {
